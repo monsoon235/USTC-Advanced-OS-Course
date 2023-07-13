@@ -1,4 +1,4 @@
-package FD.main
+package FD
 
 import java.io.{File, PrintWriter}
 import java.net.URI
@@ -28,7 +28,7 @@ import scala.collection.mutable.ArrayBuffer
 object Main {
 def main(args: Array[String]) {
     val algorithmStartTime = System.currentTimeMillis()
-    val conf = Conf.getConf(args)
+    val conf = Conf.getConf(args)  // 获取配置
     val fileName = conf.inputFilePath.split("/")
     var writer:PrintWriter = null
     if (conf.writerLocalLogs){
@@ -36,7 +36,7 @@ def main(args: Array[String]) {
       writer = new PrintWriter(new File(logFile))
     }
 
-    val sparkConf = new SparkConf().setAppName(conf.appName).set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+    val sparkConf = new SparkConf().setAppName(conf.appName).set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")  // 设置 spark config，支持序列化
     sparkConf.registerKryoClasses(Array(
       classOf[Distributor],
       classOf[ValidationResult],
@@ -54,15 +54,15 @@ def main(args: Array[String]) {
     val sc = new SparkContext(sparkConf)
 
     val reader = new Reader(conf.inputFromHBase, conf.inputFilePath, conf.numPartition, sc)
-    val dataSet: RDD[String] = reader.getDataSet().cache()
-    val distributor = new Distributor(conf, dataSet)
+    val dataSet: RDD[String] = reader.getDataSet().cache()  // 读取数据
+    val distributor = new Distributor(conf, dataSet)  // 预处理
     val tempPath = conf.tempFilePath + "/fd.tmp"
     val path = new Path(tempPath)
     val hdfs = org.apache.hadoop.fs.FileSystem.get(new URI(tempPath), new org.apache.hadoop.conf.Configuration())
-    if(hdfs.exists(path)) hdfs.delete(path, true)
-    distributor.sortedDataSet.map(f=>f.mkString(",")).saveAsTextFile(tempPath)
+    if(hdfs.exists(path)) hdfs.delete(path, true) // 创建临时文件
+    distributor.sortedDataSet.map(f=>f.mkString(",")).saveAsTextFile(tempPath) // 输入数据集排序好后保存到临时文件
     val sortedDataSet = sc.textFile(tempPath).map(f=>f.split(",").map(x=>x.toInt)).cache()
-    distributor.sortedDataSet.unpersist(false)
+    distributor.sortedDataSet.unpersist(false)  // 重新读取临时文件
     val posCover = new FDTree(conf.numAttributes)
     posCover.init(distributor.sortedCardinality)
 
