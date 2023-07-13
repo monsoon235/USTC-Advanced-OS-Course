@@ -2,5 +2,7 @@
 .vscode
 .history
 .bsp
-project
+project/project
+project/target
+project/build.properties
 target

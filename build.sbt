@@ -1,4 +1,4 @@
-name := "SparkFD"
+name := "FD"
 
 version := "1.0"
 
