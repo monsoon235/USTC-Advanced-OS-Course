@@ -305,86 +305,31 @@ PS：受条件限制，所有的 Worker 开在同一个服务器中，通过 loo
 
 ### 3.2 性能测试
 
-运行每个 evaluation 数据集的命令为：
+运行每个 evaluation 数据集的命令见 `4.3` 节。
 
-```shell
-# bots_10m_10.csv
-spark-submit \
-    --master <test spark cluster master uri> \
-    --class FD.Main \
-    --executor.memory 20G \
-    --driver.memory 20G \
-    --conf spark.driver.maxResultSize=20g \
-    --conf spark.memory.fraction=0.3 \
-    --conf spark.memory.storageFraction=0.5 \
-    --conf spark.shuffle.spill.compress=true \
-    target/scala-2.10/FD-assembly-1.0.jar \
-    --inputFilePath dataset/evaluation/bots_10m_10.csv \
-    --tempFilePath /tmp \
-    --outputFilePath result_bots_10m_10 \
-    --numAttributes 10 \
-    --numPartition 7
+为了测试程序随着数据集规模（行数与列数）的增长，其性能的变化，除了给出的 4 种大小外，另外裁剪出行数为 `100`、`1k`、`10k`、`100k`、`500k`、`1m`、`2m`、`5m`、`15m`，列数为 `3`、`5`、`7` 的数据集命名为 `bots_<rows>_<cols>.csv`。
 
-# bots_10m_15.csv
-spark-submit \
-    --master <test spark cluster master uri> \
-    --class FD.Main \
-    --executor.memory 20G \
-    --driver.memory 20G \
-    --conf spark.driver.maxResultSize=20g \
-    --conf spark.memory.fraction=0.3 \
-    --conf spark.memory.storageFraction=0.5 \
-    --conf spark.shuffle.spill.compress=true \
-    target/scala-2.10/FD-assembly-1.0.jar \
-    --inputFilePath dataset/evaluation/bots_10m_15.csv \
-    --tempFilePath /tmp \
-    --outputFilePath result_bots_10m_15 \
-    --numAttributes 15 \
-    --numPartition 7
+程序运行时间如下（单位：s）：
 
-# bots_20m_10.csv
-spark-submit \
-    --master <test spark cluster master uri> \
-    --class FD.Main \
-    --executor.memory 20G \
-    --driver.memory 20G \
-    --conf spark.driver.maxResultSize=20g \
-    --conf spark.memory.fraction=0.3 \
-    --conf spark.memory.storageFraction=0.5 \
-    --conf spark.shuffle.spill.compress=true \
-    target/scala-2.10/FD-assembly-1.0.jar \
-    --inputFilePath dataset/evaluation/bots_10m_10.csv \
-    --tempFilePath /tmp \
-    --outputFilePath result_bots_20m_10 \
-    --numAttributes 10 \
-    --numPartition 7
+| 行数\列数 |   3    |   5    |   7    |   10   |   15    |
+| :-------: | :----: | :----: | :----: | :----: | :-----: |
+|    100    | 10.283 | 13.200 | 10.853 | 12.205 | 13.591  |
+|    1k     | 9.720  | 10.830 | 10.827 | 10.955 | 12.628  |
+|    10k    | 11.051 | 11.628 | 11.326 | 12.362 | 13.665  |
+|   100k    | 11.511 | 11.724 | 12.517 | 13.621 | 15.116  |
+|   500k    | 12.740 | 13.692 | 13.521 | 13.426 | 15.999  |
+|    1m     | 12.285 | 13.806 | 17.078 | 17.620 | 21.793  |
+|    2m     | 13.552 | 15.525 | 17.671 | 25.149 | 51.940  |
+|    5m     | 17.292 | 22.619 | 29.993 | 36.996 | 60.785  |
+|    10m    | 25.002 | 24.753 | 42.547 | 57.633 | 87.828  |
+|    15m    | 37.172 | 39.469 | 47.930 | 89.431 | 149.130 |
+|    20m    | 36.708 | 44.557 | 51.233 | 99.154 | 176.945 |
 
-# bots_20m_15.csv
-spark-submit \
-    --master <test spark cluster master uri> \
-    --class FD.Main \
-    --executor.memory 20G \
-    --driver.memory 20G \
-    --conf spark.driver.maxResultSize=20g \
-    --conf spark.memory.fraction=0.3 \
-    --conf spark.memory.storageFraction=0.5 \
-    --conf spark.shuffle.spill.compress=true \
-    target/scala-2.10/FD-assembly-1.0.jar \
-    --inputFilePath dataset/evaluation/bots_20m_15.csv \
-    --tempFilePath /tmp \
-    --outputFilePath result_bots_20m_15 \
-    --numAttributes 15 \
-    --numPartition 7
-```
+从表中可以看出，当列数相同的情况下，当行数小于 500k 时，运行时间主要用于环境初始化等不变开销，当行数大于 500k 时，用时才会有相对于行数的明星增长。
 
-运行时间：
+而行数相同的情况下，运行时间相对列数为一个近似的线性关系。
 
-|      数据集       | 运行时间 |
-| :---------------: | :------: |
-| `bots_10m_10.csv` | 57.633s  |
-| `bots_10m_15.csv` | 87.828s  |
-| `bots_20m_10.csv` | 99.154s  |
-| `bots_20m_15.csv` | 176.945s |
+由此可以归纳出本算法的时间复杂度为 $O(mn)$，其中 $n$ 为行数，$m$ 为列数，且 $n$ 需要足够大以掩盖初始化开销。相对于 $O\left( n^2 \left( \cfrac{m}{2} \right)^2 2^m \right)$ 的简单算法有着显著的性能提升。
 
 ## 4. 程序代码说明
 
